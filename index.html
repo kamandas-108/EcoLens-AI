@@ -37,9 +37,9 @@
                     <span class="font-bold text-2xl text-green-800 tracking-tight">EcoLens <span class="text-green-500">AI</span></span>
                 </div>
                 <div class="hidden md:flex space-x-8 items-center">
-                    <a href="#" onclick="showSection('home')" class="hover:text-green-600 font-medium transition">Home</a>
-                    <a href="#" onclick="showSection('dashboard')" class="hover:text-green-600 font-medium transition" id="nav-dash" style="display:none;">Dashboard</a>
-                    <a href="#about" class="hover:text-green-600 font-medium transition">About</a>
+                    <a href="javascript:void(0)" onclick="showSection('home')" class="hover:text-green-600 font-medium transition">Home</a>
+                    <a href="javascript:void(0)" onclick="showSection('dashboard')" class="hover:text-green-600 font-medium transition" id="nav-dash" style="display:none;">Dashboard</a>
+                    <a href="javascript:void(0)" onclick="showSection('about')" class="hover:text-green-600 font-medium transition">About</a>
                     <button id="authBtn" onclick="toggleAuthModal()" class="bg-green-600 text-white px-5 py-2 rounded-full shadow hover:bg-green-700 transition transform hover:-translate-y-0.5">Sign In</button>
                 </div>
             </div>
@@ -55,7 +55,7 @@
             <input type="password" id="password" placeholder="Password" class="w-full mb-6 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
             <button onclick="handleAuth()" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">Submit</button>
             <p class="text-center mt-4 text-sm">
-                <a href="#" onclick="switchAuthMode()" class="text-green-600 hover:underline" id="authSwitch">Need an account? Sign up</a>
+                <a href="javascript:void(0)" onclick="switchAuthMode()" class="text-green-600 hover:underline" id="authSwitch">Need an account? Sign up</a>
             </p>
         </div>
     </div>
@@ -162,6 +162,22 @@
                 </div>
             </div>
         </section>
+        
+        <!-- ABOUT SECTION -->
+        <section id="about" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center animate-fade-in py-12">
+            <h2 class="text-4xl font-bold text-gray-800 mb-6">About <span class="text-green-500">EcoLens AI</span></h2>
+            <div class="max-w-3xl mx-auto bg-white p-8 rounded-3xl shadow-lg border border-gray-100 text-left">
+                <p class="text-lg text-gray-600 mb-4">
+                    EcoLens AI was built with a simple mission: to make recycling effortless and accessible for everyone. 
+                </p>
+                <p class="text-lg text-gray-600 mb-4">
+                    By combining the power of <strong>Google Gemini AI</strong> with real-time geolocation, we help you identify everyday waste, understand its environmental impact, and find the nearest proper disposal centers. 
+                </p>
+                <p class="text-lg text-green-700 font-semibold text-center mt-8">
+                    "Snap Waste. Save the Planet."
+                </p>
+            </div>
+        </section>
 
     </main>
 
@@ -186,9 +202,13 @@
 
         // UI Routing
         function showSection(sectionId) {
+            // Hide all sections
             document.getElementById('home').classList.add('hidden');
             document.getElementById('results').classList.add('hidden');
             document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('about').classList.add('hidden');
+
+            // Show targeted section
             document.getElementById(sectionId).classList.remove('hidden');
 
             if(sectionId === 'dashboard' && currentUser) {
