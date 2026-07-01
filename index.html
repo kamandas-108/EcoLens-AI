@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoLens AI - Snap Waste. Save the Planet.</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet for OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #f3fdf8; }
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out forwards; }
+        .animate-slide-up { animation: slideUp 0.6s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        #map { height: 300px; border-radius: 12px; z-index: 1; }
+        .recording { animation: pulse 1.5s infinite; color: red; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 glass shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="showSection('home')">
+                    <i class="fa-solid fa-leaf text-green-600 text-3xl mr-2"></i>
+                    <span class="font-bold text-2xl text-green-800 tracking-tight">EcoLens <span class="text-green-500">AI</span></span>
+                </div>
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="#" onclick="showSection('home')" class="hover:text-green-600 font-medium transition">Home</a>
+                    <a href="#" onclick="showSection('dashboard')" class="hover:text-green-600 font-medium transition" id="nav-dash" style="display:none;">Dashboard</a>
+                    <a href="#about" class="hover:text-green-600 font-medium transition">About</a>
+                    <button id="authBtn" onclick="toggleAuthModal()" class="bg-green-600 text-white px-5 py-2 rounded-full shadow hover:bg-green-700 transition transform hover:-translate-y-0.5">Sign In</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 max-w-[90%] animate-slide-up relative">
+            <button onclick="toggleAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times"></i></button>
+            <h2 id="authTitle" class="text-2xl font-bold text-center text-green-700 mb-6">Welcome Back</h2>
+            <input type="text" id="username" placeholder="Username" class="w-full mb-4 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+            <input type="password" id="password" placeholder="Password" class="w-full mb-6 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+            <button onclick="handleAuth()" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">Submit</button>
+            <p class="text-center mt-4 text-sm">
+                <a href="#" onclick="switchAuthMode()" class="text-green-600 hover:underline" id="authSwitch">Need an account? Sign up</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="pt-24 pb-12 min-h-screen">
+        
+        <!-- HOME SECTION -->
+        <section id="home" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center animate-fade-in">
+            <h1 class="text-5xl md:text-6xl font-extrabold text-gray-900 mt-10 mb-6">Know Before You <span class="text-green-500">Throw.</span></h1>
+            <p class="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">Upload a photo of waste, and EcoLens AI instantly identifies the item, tells you how to dispose of it properly, and finds the nearest recycling center.</p>
+            
+            <div class="max-w-xl mx-auto bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
+                <div class="border-4 border-dashed border-green-200 rounded-2xl p-10 hover:bg-green-50 transition cursor-pointer relative" id="drop-zone" onclick="document.getElementById('fileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up text-5xl text-green-500 mb-4"></i>
+                    <p class="text-lg font-semibold text-gray-700">Tap or click to upload</p>
+                    <p class="text-sm text-gray-500 mt-2">Supports JPG, PNG (Max 5MB)</p>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*" onchange="handleFileUpload(event)">
+                </div>
+                <div id="loadingIndicator" class="hidden mt-6">
+                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-green-500"></i>
+                    <p class="mt-2 text-gray-600 font-medium">AI is analyzing your waste...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESULTS SECTION -->
+        <section id="results" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-slide-up">
+            <button onclick="showSection('home')" class="mb-6 text-green-600 hover:text-green-800 font-semibold"><i class="fa-solid fa-arrow-left mr-2"></i>Scan Another</button>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Left: Image & Basics -->
+                <div class="col-span-1 bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+                    <img id="res-image" src="" class="w-full h-64 object-cover rounded-xl mb-4 shadow-sm" alt="Uploaded waste">
+                    <h2 id="res-type" class="text-2xl font-bold text-gray-900">Plastic Bottle</h2>
+                    <p class="text-gray-500 text-sm mb-4">Confidence: <span id="res-conf" class="font-semibold text-green-600">96%</span></p>
+                    
+                    <div class="flex items-center space-x-3 mb-4">
+                        <span id="res-recycle-badge" class="px-4 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-800"><i class="fa-solid fa-check-circle mr-1"></i> Recyclable</span>
+                        <span id="res-difficulty" class="px-4 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-800">🟢 Easy</span>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-xl mt-4">
+                        <h4 class="font-bold text-blue-800 text-sm"><i class="fa-solid fa-earth-americas mr-1"></i> Environmental Impact</h4>
+                        <p class="text-sm text-blue-900 mt-1">Saves ~<span id="res-co2" class="font-bold">120g</span> of CO₂ if recycled properly.</p>
+                        <p class="text-sm text-green-700 mt-2 font-bold">+<span id="res-score">10</span> Eco Points Earned!</p>
+                    </div>
+                </div>
+
+                <!-- Middle: Instructions & Ideas -->
+                <div class="col-span-1 md:col-span-2 space-y-6">
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fa-solid fa-trash-can mr-2 text-green-500"></i> Disposal Guide</h3>
+                        <ul id="res-steps" class="space-y-3">
+                            <!-- JS injected steps -->
+                        </ul>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+                            <h3 class="text-lg font-bold text-gray-800 mb-3"><i class="fa-solid fa-lightbulb mr-2 text-yellow-500"></i> Reuse Ideas</h3>
+                            <ul id="res-ideas" class="list-disc list-inside text-gray-600 text-sm space-y-2">
+                                <!-- JS injected ideas -->
+                            </ul>
+                        </div>
+                        <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+                            <h3 class="text-lg font-bold text-gray-800 mb-3"><i class="fa-solid fa-robot mr-2 text-purple-500"></i> Ask AI</h3>
+                            <div class="flex items-center border rounded-lg overflow-hidden bg-gray-50">
+                                <input type="text" id="chatInput" placeholder="Can I recycle the cap?" class="w-full px-3 py-2 bg-transparent focus:outline-none text-sm">
+                                <button onclick="startVoice()" title="Use Voice" class="px-3 text-gray-500 hover:text-green-600"><i class="fa-solid fa-microphone" id="micIcon"></i></button>
+                                <button onclick="sendChat()" class="bg-green-500 text-white px-4 py-2 hover:bg-green-600"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                            <div id="chatResponse" class="mt-3 text-sm text-gray-700 bg-purple-50 p-3 rounded-lg hidden"></div>
+                        </div>
+                    </div>
+
+                    <!-- Map Container -->
+                    <div class="bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3"><i class="fa-solid fa-location-dot mr-2 text-red-500"></i> Nearby Recycling Centers</h3>
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboard" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-fade-in">
+            <h2 class="text-4xl font-bold text-gray-800 mb-8">Your Impact Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow border-l-4 border-green-500">
+                    <p class="text-gray-500 text-sm font-semibold">Rank</p>
+                    <h3 id="dash-rank" class="text-2xl font-bold text-green-600">Bronze</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow border-l-4 border-blue-500">
+                    <p class="text-gray-500 text-sm font-semibold">Eco Score</p>
+                    <h3 id="dash-score" class="text-2xl font-bold text-blue-600">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow border-l-4 border-yellow-500">
+                    <p class="text-gray-500 text-sm font-semibold">Items Recycled</p>
+                    <h3 id="dash-items" class="text-2xl font-bold text-yellow-600">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow border-l-4 border-purple-500">
+                    <p class="text-gray-500 text-sm font-semibold">CO₂ Saved</p>
+                    <h3 id="dash-co2" class="text-2xl font-bold text-purple-600">0g</h3>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-gray-800 font-semibold mb-2">Developed and deployed by Kaman Das ©2026</p>
+            <p class="text-gray-500 text-sm">Made with Love ❤️</p>
+        </div>
+    </footer>
+
+    <script>
+        // ==========================================
+        // 🚀 SET YOUR RENDER BACKEND URL HERE
+        // ==========================================
+        const BACKEND_URL = "http://localhost:5000"; // Paste your Render backend link here. e.g., "https://ecolens-api.onrender.com"
+
+        let currentUser = null;
+        let isLoginMode = true;
+        let mapInitialized = false;
+        let currentWasteContext = "";
+
+        // UI Routing
+        function showSection(sectionId) {
+            document.getElementById('home').classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById(sectionId).classList.remove('hidden');
+
+            if(sectionId === 'dashboard' && currentUser) {
+                loadDashboardData();
+            }
+        }
+
+        // Auth Logic
+        function toggleAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function switchAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('authTitle').innerText = isLoginMode ? "Welcome Back" : "Create Account";
+            document.getElementById('authSwitch').innerText = isLoginMode ? "Need an account? Sign up" : "Already have an account? Log in";
+        }
+
+        async function handleAuth() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const endpoint = isLoginMode ? '/api/login' : '/api/signup';
+            
+            try {
+                const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                
+                if(res.ok) {
+                    if(isLoginMode) {
+                        currentUser = data;
+                        document.getElementById('authBtn').innerText = "Log Out";
+                        document.getElementById('authBtn').onclick = logout;
+                        document.getElementById('nav-dash').style.display = 'block';
+                        toggleAuthModal();
+                        alert(`Welcome, ${data.username}!`);
+                    } else {
+                        alert("Account created! Please log in.");
+                        switchAuthMode();
+                    }
+                } else {
+                    alert(data.error);
+                }
+            } catch (err) {
+                alert("Network error connecting to backend.");
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('authBtn').innerText = "Sign In";
+            document.getElementById('authBtn').onclick = toggleAuthModal;
+            document.getElementById('nav-dash').style.display = 'none';
+            showSection('home');
+        }
+
+        async function loadDashboardData() {
+            if(!currentUser) return;
+            const res = await fetch(`${BACKEND_URL}/api/user/${currentUser.user_id}`);
+            const data = await res.json();
+            if(res.ok) {
+                document.getElementById('dash-rank').innerText = data.rank;
+                document.getElementById('dash-score').innerText = data.eco_score;
+                document.getElementById('dash-items').innerText = data.items_recycled;
+                document.getElementById('dash-co2').innerText = `${data.co2_saved}g`;
+            }
+        }
+
+        // AI Vision logic
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+
+            // Preview Image
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('res-image').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Show loading
+            document.getElementById('drop-zone').classList.add('hidden');
+            document.getElementById('loadingIndicator').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append("image", file);
+            if(currentUser) formData.append("user_id", currentUser.user_id);
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/analyze`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if(res.ok) {
+                    renderResults(data);
+                } else {
+                    alert("AI Error: " + data.error);
+                    resetUploader();
+                }
+            } catch (err) {
+                alert("Failed to connect to AI server.");
+                resetUploader();
+            }
+        }
+
+        function renderResults(data) {
+            document.getElementById('drop-zone').classList.remove('hidden');
+            document.getElementById('loadingIndicator').classList.add('hidden');
+            
+            // Populate Fields
+            document.getElementById('res-type').innerText = data.type;
+            currentWasteContext = data.type;
+            document.getElementById('res-conf').innerText = data.confidence;
+            
+            const badge = document.getElementById('res-recycle-badge');
+            if(data.recyclable) {
+                badge.className = "px-4 py-1.5 rounded-full text-sm font-bold bg-green-100 text-green-800";
+                badge.innerHTML = '<i class="fa-solid fa-check-circle mr-1"></i> Recyclable';
+            } else {
+                badge.className = "px-4 py-1.5 rounded-full text-sm font-bold bg-red-100 text-red-800";
+                badge.innerHTML = '<i class="fa-solid fa-times-circle mr-1"></i> Non-Recyclable';
+            }
+
+            const diffColor = data.difficulty === 'Easy' ? 'green' : data.difficulty === 'Moderate' ? 'yellow' : 'red';
+            document.getElementById('res-difficulty').innerText = `${data.difficulty === 'Easy' ? '🟢' : data.difficulty === 'Moderate' ? '🟡' : '🔴'} ${data.difficulty}`;
+            document.getElementById('res-difficulty').className = `px-4 py-1.5 rounded-full text-sm font-bold bg-${diffColor}-100 text-${diffColor}-800`;
+            
+            document.getElementById('res-co2').innerText = data.co2_saved_grams + "g";
+            document.getElementById('res-score').innerText = data.score_awarded;
+
+            // Steps
+            const stepsHtml = data.disposal_steps.map(step => `
+                <li class="flex items-start">
+                    <i class="fa-solid fa-check-circle text-green-500 mt-1 mr-3"></i>
+                    <span class="text-gray-700">${step}</span>
+                </li>
+            `).join('');
+            document.getElementById('res-steps').innerHTML = stepsHtml;
+
+            // Ideas
+            const ideasHtml = data.reuse_ideas.map(idea => `<li>${idea}</li>`).join('');
+            document.getElementById('res-ideas').innerHTML = ideasHtml;
+
+            showSection('results');
+            initMap();
+        }
+
+        function resetUploader() {
+            document.getElementById('drop-zone').classList.remove('hidden');
+            document.getElementById('loadingIndicator').classList.add('hidden');
+            document.getElementById('fileInput').value = "";
+        }
+
+        // AI Chat & Web Speech API
+        function startVoice() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if(!SpeechRecognition) {
+                alert("Your browser does not support Voice Input.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            const micIcon = document.getElementById('micIcon');
+            
+            recognition.onstart = () => { micIcon.classList.add('recording'); };
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('chatInput').value = transcript;
+                sendChat();
+            };
+            recognition.onend = () => { micIcon.classList.remove('recording'); };
+            recognition.start();
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput').value;
+            if(!input) return;
+
+            const resDiv = document.getElementById('chatResponse');
+            resDiv.classList.remove('hidden');
+            resDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking...';
+
+            try {
+                const res = await fetch(`${BACKEND_URL}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: input, context: currentWasteContext })
+                });
+                const data = await res.json();
+                resDiv.innerHTML = `<strong>AI:</strong> ${data.reply}`;
+                document.getElementById('chatInput').value = "";
+            } catch(e) {
+                resDiv.innerHTML = `<span class="text-red-500">Error connecting to AI.</span>`;
+            }
+        }
+
+        // OpenStreetMap Geolocation via Leaflet
+        function initMap() {
+            if(mapInitialized) return;
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        const map = L.map('map').setView([lat, lng], 13);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors'
+                        }).addTo(map);
+
+                        // User Location Marker
+                        L.marker([lat, lng]).addTo(map)
+                            .bindPopup('You are here')
+                            .openPopup();
+
+                        // Simulated nearby recycling center (offset slightly)
+                        const centerLat = lat + (Math.random() * 0.02 - 0.01);
+                        const centerLng = lng + (Math.random() * 0.02 - 0.01);
+                        
+                        const greenIcon = L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                            iconSize: [25, 41],
+                            iconAnchor: [12, 41],
+                            popupAnchor: [1, -34],
+                            shadowSize: [41, 41]
+                        });
+
+                        L.marker([centerLat, centerLng], {icon: greenIcon}).addTo(map)
+                            .bindPopup('<b>Eco Green Recycling Center</b><br>Accepts: Plastic, Paper, Glass')
+                            .openPopup();
+                        
+                        mapInitialized = true;
+                    },
+                    () => {
+                        document.getElementById('map').innerHTML = "<p class='p-4 text-center text-gray-500'>Location access denied. Cannot find nearby centers.</p>";
+                    }
+                );
+            }
+        }
+    </script>
+</body>
+</html>
